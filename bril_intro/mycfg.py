@@ -18,10 +18,12 @@ def form_blocks(instrs):
         yield cur_block
         cur_block = []
     else: # a label
-      yield cur_block
+      if cur_block:
+        yield cur_block
       cur_block = [I]
 
-  yield cur_block
+  if cur_block:
+    yield cur_block
 
 
 def get_first_label(BB):
@@ -58,7 +60,7 @@ def form_cfg():
       if idx < len(blocks_label_sequence) - 1:
         CFG[block_label] = [blocks_label_sequence[idx + 1]]
       else:
-        CFG[block_label] = None
+        CFG[block_label] = []
   return CFG
 
 
@@ -79,9 +81,9 @@ def main():
 
   CFG = form_cfg()
 
-  print()
-
-  print(CFG)
+  for label in blocks_label_sequence:
+    print(label)
+    print("   ", CFG[label])
 
 if __name__ == '__main__':
   main()
