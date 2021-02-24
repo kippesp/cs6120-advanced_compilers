@@ -87,9 +87,10 @@ def main():
     for attr in ['graph', 'node', 'edge']:
       print('  {} [fontname = "{}"];'.format(attr, 'inconsolata'))
 
+    print()
     for label in blocks_label_sequence:
       print("  {};".format(label))
-    print();
+    print()
 
     for label in blocks_label_sequence:
       if label in CFG:

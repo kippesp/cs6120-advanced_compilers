@@ -1,0 +1,12 @@
+digraph main {
+  graph [fontname = "inconsolata"];
+  node [fontname = "inconsolata"];
+  edge [fontname = "inconsolata"];
+
+  BB0;
+  BB1;
+  somewhere;
+
+  BB0 -> somewhere;
+  BB1 -> somewhere;
+}
