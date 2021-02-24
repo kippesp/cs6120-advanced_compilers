@@ -77,13 +77,26 @@ def main():
         initial_block_label = block_label
       block_labels_map[block_label] = BB
       blocks_label_sequence.append(block_label)
-      print(BB)
 
-  CFG = form_cfg()
+    CFG = form_cfg()
 
-  for label in blocks_label_sequence:
-    print(label)
-    print("   ", CFG[label])
+    # Output dotty file
+    #   dot -Tpdf -o cfg.pdf
+
+    print("digraph {} {{".format(F['name']))
+    for attr in ['graph', 'node', 'edge']:
+      print('  {} [fontname = "{}"];'.format(attr, 'inconsolata'))
+
+    for label in blocks_label_sequence:
+      print("  {};".format(label))
+    print();
+
+    for label in blocks_label_sequence:
+      if label in CFG:
+        for dest_label in CFG[label]:
+          print("  {} -> {};".format(label, dest_label))
+
+    print("}")
 
 if __name__ == '__main__':
   main()
