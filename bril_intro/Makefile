@@ -1,4 +1,4 @@
-TESTS := *.bril
+TESTS := tests/*.bril
 
 .PHONY: tests
 tests:
