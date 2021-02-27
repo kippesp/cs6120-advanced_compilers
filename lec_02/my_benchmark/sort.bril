@@ -60,7 +60,49 @@
   #call @printTable n input;
 }
 
-@sort(tableSize: int, table: ptr<int>) {
+@sortTable(tableSize: int, table: ptr<int>) {
+  idx_i: int = const 0;
+  zero: int = const 0;
+  one: int = const 1;
+.sort.table.for.cond:
+  sort_continue: bool = lt idx_i tableSize;
+  br sort_continue .sort.table.for.body .sort.table.for.end;
+.sort.table.for.body:
+  min_idx: int = id idx_i;
+  idx_j: int = add idx_i one;
+.findmin.for.cond:
+  findmin_continue: bool = lt idx_j tableSize;
+  br findmin_continue .findmin.for.body .findmin.for.end;
+.findmin.for.body:
+  searchValueOffset: ptr<int> = ptradd table idx_j;
+  minValueOffset: ptr<int> = ptradd table min_idx;
+  searchValue: int = load searchValueOffset;
+  minValue: int = load minValueOffset;
+  haveNewMin: bool = lt searchValue minValue;
+  br haveNewMin .haveNewMin.if.true;
+  jmp .haveNewMin.if.end;
+.haveNewMin.if.true:
+  min_idx: int = id idx_j;
+.haveNewMin.if.end:
+  jmp .findmin.for.cond;
+.findmin.for.end:
+  swapNewMin: bool = ne idx_i min_idx;
+  br swapNewMin .swapNewMin.if.true .swapNewMin.if.end;
+  jmp .swapNewMin.if.end;
+.swapNewMin.if.true:
+  oldMinDest: ptr<int> = ptradd table idx_i;
+  newMinDest: ptr<int> = ptradd table min_idx;
+  oldMinValue: int = load newMinDest;
+  newMinValue: int = load oldMinDest;
+  store newMinDest newMinValue;
+  store oldMinDest oldMinValue;
+.swapNewMin.if.end:
+  jmp .sort.table.for.cond;
+.sort.table.for.end:
+  ret;
+
+
+
 #  v0: float = const 0;
 #  min_idx: int = id v0;
 #  v2: int = const 0;
