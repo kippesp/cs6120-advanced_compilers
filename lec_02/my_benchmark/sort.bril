@@ -68,7 +68,7 @@
   searchValue: int = load searchValueOffset;
   minValue: int = load minValueOffset;
   haveNewMin: bool = lt searchValue minValue;
-  br haveNewMin .haveNewMin.if.true;
+  br haveNewMin .haveNewMin.if.true .haveNewMin.if.end;
   jmp .haveNewMin.if.end;
 .haveNewMin.if.true:
   min_idx: int = id idx_j;
@@ -96,7 +96,7 @@
   table: ptr<int> = alloc n;
   call @populateTable n table;
   #call @printTable n table;
-  call @sortTable n input;
-  call @printTable n input;
+  call @sortTable n table;
+  call @printTable n table;
   free table;
 }
