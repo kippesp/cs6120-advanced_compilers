@@ -1,4 +1,4 @@
-#include <stdio.h>
+int printf(const char *, ...);
 
 void printTable(int n, int* table)
 {
@@ -8,12 +8,10 @@ void printTable(int n, int* table)
 
 void sort(int n, int* table)
 {
-  for (int idx_i = 0; idx_i < n; idx_i++)
-  {
+  for (int idx_i = 0; idx_i < n; idx_i++) {
     int min_idx = idx_i;
 
-    for (int idx_j = idx_i + 1; idx_j < n; idx_j++)
-    {
+    for (int idx_j = idx_i + 1; idx_j < n; idx_j++) {
       int searchValue = table[idx_j];
       int minValue = table[min_idx];
 
@@ -21,11 +19,13 @@ void sort(int n, int* table)
         min_idx = idx_j;
     }
 
-    if (idx_i != min_idx)
-    {
-      int tmp = table[idx_i];
-      table[idx_i] = table[min_idx];
-      table[min_idx] = tmp;
+    if (idx_i != min_idx) {
+      int* pOldMinDest = table + idx_i;
+      int* pNewMinDest = table + min_idx;
+      int oldMinValue = *pNewMinDest;
+      int newMinValue = *pOldMinDest;
+      *pNewMinDest = newMinValue;
+      *pOldMinDest = oldMinValue;
     }
   }
 }
