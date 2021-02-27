@@ -1,73 +1,133 @@
-@main {
+@populateTable(tableSize: int, table: ptr<int>) {
+  zero:  int = const 0;
+  one:   int = const 1;
+  two:   int = const 2;
+  three: int = const 3;
+  four:  int = const 4;
+  five:  int = const 5;
+  six:   int = const 6;
+  seven: int = const 7;
+  eight: int = const 8;
+  nine:  int = const 9;
+  ten:   int = const 10;
+  offsetTable: ptr<int> = ptradd table zero;
+  store offsetTable seven;
+  offsetTable: ptr<int> = ptradd offsetTable one;
+  store offsetTable two;
+  offsetTable: ptr<int> = ptradd offsetTable one;
+  store offsetTable three;
+  offsetTable: ptr<int> = ptradd offsetTable one;
+  store offsetTable zero;
+  offsetTable: ptr<int> = ptradd offsetTable one;
+  store offsetTable one;
+  offsetTable: ptr<int> = ptradd offsetTable one;
+  store offsetTable nine;
+  offsetTable: ptr<int> = ptradd offsetTable one;
+  store offsetTable one;
+  offsetTable: ptr<int> = ptradd offsetTable one;
+  store offsetTable six;
+  offsetTable: ptr<int> = ptradd offsetTable one;
+  store offsetTable five;
+  offsetTable: ptr<int> = ptradd offsetTable one;
+  store offsetTable four;
 }
-@sort(num: int) {
-  v0: float = const 0;
-  min_idx: int = id v0;
-  v2: int = const 0;
-  i: int = id v2;
-.for.cond.1:
-  v3: int = id i;
-  v4: int = id num;
-  v5: bool = lt v3 v4;
-  br v5 .for.body.1 .for.end.1;
-.for.body.1:
-  v6: int = id i;
-  min_idx: int = id v6;
-  v8: int = id i;
-  v9: int = const 1;
-  v10: int = add v8 v9;
-  j: int = id v10;
-.for.cond.7:
-  v11: int = id i;
-  v12: int = id num;
-  v13: bool = lt v11 v12;
-  br v13 .for.body.7 .for.end.7;
-.for.body.7:
-  v15: float = const 1;
-  br v15 .then.14 .else.14;
-.then.14:
-  v16: int = id j;
-  min_idx: int = id v16;
-  jmp .endif.14;
-.else.14:
-.endif.14:
-  v17: int = id i;
-  v18: int = const 1;
-  v19: int = add v17 v18;
-  i: int = id v19;
-  jmp .for.cond.7;
-.for.end.7:
-  v21: int = id i;
-  v22: int = id min_idx;
-  v23: bool = eq v21 v22;
-  br v23 .then.20 .else.20;
-.then.20:
-  v24: float = const 0;
-  tmp: int = id v24;
-  jmp .endif.20;
-.else.20:
-.endif.20:
-  v25: int = id i;
-  v26: int = const 1;
-  v27: int = add v25 v26;
-  i: int = id v27;
-  jmp .for.cond.1;
-.for.end.1:
-  v29: int = const 0;
-  ii: int = id v29;
-.for.cond.28:
-  v30: int = id ii;
-  v31: int = id num;
-  v32: bool = lt v30 v31;
-  br v32 .for.body.28 .for.end.28;
-.for.body.28:
-  v33: int = id ii;
-  print v33;
-  v34: int = const 0;
-  v35: int = id ii;
-  v36: int = const 1;
-  v37: int = add v35 v36;
-  ii: int = id v37;
-  jmp .for.cond.28;
-.for.end.28:
+
+@printTable(tableSize: int, table: ptr<int>) {
+  idx: int = const 0;
+  zero: int = const 0;
+  one: int = const 1;
+.print.table.for.cond:
+  continue: bool = lt idx tableSize;
+  br continue .print.table.for.body .print.table.for.end;
+.print.table.for.body:
+  offsetTable: ptr<int> = ptradd table idx;
+  num: int = load offsetTable;
+  print num;
+  idx: int = add idx one;
+  jmp .print.table.for.cond;
+.print.table.for.end:
+  ret;
+}
+
+@main {
+  n: int = const 10;
+  table: ptr<int> = alloc n;
+  call @populateTable n table;
+  call @printTable n table;
+  free table;
+
+  #call @sort n input;
+  #call @printTable n input;
+}
+
+@sort(tableSize: int, table: ptr<int>) {
+#  v0: float = const 0;
+#  min_idx: int = id v0;
+#  v2: int = const 0;
+#  i: int = id v2;
+#.for.cond.1:
+#  v3: int = id i;
+#  v4: int = id tableSize;
+#  v5: bool = lt v3 v4;
+#  br v5 .for.body.1 .for.end.1;
+#.for.body.1:
+#  v6: int = id i;
+#  min_idx: int = id v6;
+#  v8: int = id i;
+#  v9: int = const 1;
+#  v10: int = add v8 v9;
+#  j: int = id v10;
+#.for.cond.7:
+#  v11: int = id i;
+#  v12: int = id tableSize;
+#  v13: bool = lt v11 v12;
+#  br v13 .for.body.7 .for.end.7;
+#.for.body.7:
+#  v15: float = const 1;
+#  br v15 .then.14 .else.14;
+#.then.14:
+#  v16: int = id j;
+#  min_idx: int = id v16;
+#  jmp .endif.14;
+#.else.14:
+#.endif.14:
+#  v17: int = id i;
+#  v18: int = const 1;
+#  v19: int = add v17 v18;
+#  i: int = id v19;
+#  jmp .for.cond.7;
+#.for.end.7:
+#  v21: int = id i;
+#  v22: int = id min_idx;
+#  v23: bool = eq v21 v22;
+#  br v23 .then.20 .else.20;
+#.then.20:
+#  v24: float = const 0;
+#  tmp: int = id v24;
+#  jmp .endif.20;
+#.else.20:
+#.endif.20:
+#  v25: int = id i;
+#  v26: int = const 1;
+#  v27: int = add v25 v26;
+#  i: int = id v27;
+#  jmp .for.cond.1;
+#.for.end.1:
+#  v29: int = const 0;
+#  ii: int = id v29;
+#.for.cond.28:
+#  v30: int = id ii;
+#  v31: int = id tableSize;
+#  v32: bool = lt v30 v31;
+#  br v32 .for.body.28 .for.end.28;
+#.for.body.28:
+#  v33: int = id ii;
+#  print v33;
+#  v34: int = const 0;
+#  v35: int = id ii;
+#  v36: int = const 1;
+#  v37: int = add v35 v36;
+#  ii: int = id v37;
+#  jmp .for.cond.28;
+#.for.end.28:
 }
