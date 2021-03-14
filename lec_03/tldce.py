@@ -1,6 +1,4 @@
 # Trivial local dead code elimination
-# remove redefined without use
-# remove defined but not used instructions in BB
 
 import json
 import sys
@@ -42,6 +40,7 @@ def get_first_label(BB):
   return label
 
 def tldce(BB):
+  # Remove redefined-without-use instructions in local BB
   done = False
 
   while not done:
@@ -65,9 +64,10 @@ def tldce(BB):
 
     if remove_idx:
       BB.pop(remove_idx)
-
   return BB
 
+def tgdce(M):
+  # remove unused instuctions in global; does not consider CF
 
 def main():
   global next_block_idx
