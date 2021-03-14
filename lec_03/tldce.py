@@ -41,6 +41,32 @@ def get_first_label(BB):
     BB.insert(0, label_inst)
   return label
 
+def tldce(BB):
+  done = False
+
+  while not done:
+    done = True
+    unused_defs = {}
+    remove_idx = None
+
+    for idx,I in enumerate(BB):
+      if 'op' in I:
+        if 'args' in I:
+          for arg in I['args']:
+            if arg in unused_defs:
+              unused_defs.pop(arg)
+        if 'dest' in I:
+          if I['dest'] in unused_defs.keys():
+            remove_idx = unused_defs.pop(I['dest'])
+            done = False
+            break
+          else:
+            unused_defs[I['dest']] = idx
+
+    if remove_idx:
+      BB.pop(remove_idx)
+
+  return BB
 
 
 def main():
@@ -53,7 +79,7 @@ def main():
     new_BBs = []
     for BB in form_blocks(F['instrs']):
       get_first_label(BB)
-      new_BBs.append(BB)
+      new_BBs.append(tldce(BB))
 
     F['instrs'] = []
     for BB in new_BBs:
