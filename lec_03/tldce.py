@@ -66,8 +66,41 @@ def tldce(BB):
       BB.pop(remove_idx)
   return BB
 
-def tgdce(M):
+def tgdce(F):
   # remove unused instuctions in global; does not consider CF
+  done = False
+
+  while not done:
+    work_queue = []
+
+    used_defs = {}
+
+    # Find all uses
+    for I in F['instrs']:
+      if 'op' in I:
+        if 'args' in I:
+          for arg in I['args']:
+            used_defs[arg] = 1
+
+    # Find any unused definitions
+    for idx,I in enumerate(F['instrs']):
+      if 'op' in I:
+        if I['op'] in ['call', 'print']:
+          continue
+        if 'dest' in I:
+          if I['dest'] not in used_defs:
+            work_queue.append(idx)
+
+    work_queue.reverse()
+
+    for idx in work_queue:
+      F['instrs'].pop(idx)
+
+    done = len(work_queue) == 0
+
+  return F
+
+
 
 def main():
   global next_block_idx
@@ -86,6 +119,13 @@ def main():
       for I in BB:
         F['instrs'].append(I)
     M2['functions'].append(F)
+
+  new_Fs = []
+
+  for F in M['functions']:
+    new_Fs.append(tgdce(F))
+
+  M['functions'] = new_Fs
 
   print(json.dumps(M2))
 
