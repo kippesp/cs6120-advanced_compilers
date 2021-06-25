@@ -1,2 +1,2 @@
-command = "bril2json < {filename} | python ../tldce.py | brili {args}"
+command = "bril2json < {filename} | python ../tldce-old.py | brili {args}"
 #command = "bril2json < {filename} | brili {args}"

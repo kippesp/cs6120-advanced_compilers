@@ -1,0 +1,114 @@
+# Uses @rand and @randarray from mat-mul.bril
+
+# Use a linear congruential generator to generate random numbers.
+# `seq` is the state of the random number generator.
+# Returns a value between 0 and max
+@rand(seq: ptr<int>, max: int) : int {
+  a: int = const 25214903917;
+  c: int = const 11;
+  m: int = const 281474976710656;
+  x: int = load seq;
+  ax: int = mul a x;
+  axpc: int = add ax c;
+  next: int = div axpc m;
+  next: int = mul next m;
+  next: int = sub axpc next;
+  store seq next;
+  val: int = div next max;
+  val: int = mul val max;
+  val: int = sub next val;
+  ret val;
+}
+
+# Generates a random array of length `size`
+@randArray(size: int, rng: ptr<int>) : ptr<int> {
+  arr: ptr<int> = alloc size;
+  i: int = const 0;
+  max: int = const 100;
+  one: int = const 1;
+.loop:
+  cond: bool = lt i size;
+  br cond .body .done;
+.body:
+  val: int = call @rand rng max;
+  loc: ptr<int> = ptradd arr i;
+  store loc val;
+.loop_end:
+  i: int = add i one;
+  jmp .loop;
+.done:
+  ret arr;
+}
+
+@printArray(arraySize: int, array: ptr<int>) {
+  idx: int = const 0;
+  one: int = const 1;
+.print.array.for.cond:
+  continue: bool = lt idx arraySize;
+  br continue .print.array.for.body .print.array.for.end;
+.print.array.for.body:
+  offsetArray: ptr<int> = ptradd array idx;
+  num: int = load offsetArray;
+  print num;
+  idx: int = add idx one;
+  jmp .print.array.for.cond;
+.print.array.for.end:
+  ret;
+}
+
+# in-place sort (selection sort)
+@sortArray(arraySize: int, array: ptr<int>) {
+  idx_i: int = const 0;
+  one: int = const 1;
+.sort.array.for.cond:
+  sort_continue: bool = lt idx_i arraySize;
+  br sort_continue .sort.array.for.body .sort.array.for.end;
+.sort.array.for.body:
+  min_idx: int = id idx_i;
+  idx_j: int = add idx_i one;
+.findmin.for.cond:
+  findmin_continue: bool = lt idx_j arraySize;
+  br findmin_continue .findmin.for.body .findmin.for.end;
+.findmin.for.body:
+  searchValueOffset: ptr<int> = ptradd array idx_j;
+  minValueOffset: ptr<int> = ptradd array min_idx;
+  searchValue: int = load searchValueOffset;
+  minValue: int = load minValueOffset;
+  haveNewMin: bool = lt searchValue minValue;
+  br haveNewMin .haveNewMin.if.true .haveNewMin.if.end;
+  jmp .haveNewMin.if.end;
+.haveNewMin.if.true:
+  min_idx: int = id idx_j;
+.haveNewMin.if.end:
+  idx_j: int = add idx_j one;
+  jmp .findmin.for.cond;
+.findmin.for.end:
+  swapNewMinNot: bool = eq idx_i min_idx;
+  swapNewMin: bool = not swapNewMinNot;
+  br swapNewMin .swapNewMin.if.true .swapNewMin.if.end;
+  jmp .swapNewMin.if.end;
+.swapNewMin.if.true:
+  oldMinDest: ptr<int> = ptradd array idx_i;
+  newMinDest: ptr<int> = ptradd array min_idx;
+  oldMinValue: int = load newMinDest;
+  newMinValue: int = load oldMinDest;
+  store newMinDest newMinValue;
+  store oldMinDest oldMinValue;
+.swapNewMin.if.end:
+  idx_i: int = add idx_i one;
+  jmp .sort.array.for.cond;
+.sort.array.for.end:
+  ret;
+}
+
+# ARGS: 30 109660
+@main(n: int, seed: int) {
+  one: int = const 1;
+  rng: ptr<int> = alloc one;
+  store rng seed;
+  array: ptr<int> = call @randArray n rng;
+  call @sortArray n array;
+  call @printArray n array;
+  free array;
+  free rng;
+}
