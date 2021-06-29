@@ -132,17 +132,108 @@ def main_old():
 
   print(json.dumps(M2))
 
+
+def is_single_BB(M):
+  cur_block = []
+
+  for I in instrs:
+    if 'op' in I:
+      cur_block.append(I)
+      if I['op'] in TERMINATORS:
+        yield cur_block
+        cur_block = []
+    else: # a label
+      if cur_block:
+        yield cur_block
+      cur_block = [I]
+
+  if cur_block:
+    yield cur_block
+
+# Module Pass: trivial dead code elimination
+#
+# Removes unused instructions.  A LHS variable definition with no RHS
+# uses is dead.
+def tdce(M):
+  workqueue_fns = []
+  for i,F in enumerate(M['functions']):
+    workqueue_fns.append((i, F))
+
+  for i,F in workqueue_fns:
+    used_defs = {}
+    workqueue_idx = []
+
+    # Find all uses
+    for I in F['instrs']:
+      if 'op' in I:
+        if 'args' in I:
+          for arg in I['args']:
+            used_defs[arg] = 1
+
+    # Find any unused definitions
+    for idx,I in enumerate(F['instrs']):
+      if 'op' in I:
+        if I['op'] in ['call', 'print']:
+          continue
+        if 'dest' in I:
+          if I['dest'] not in used_defs:
+            workqueue_idx.append(idx)
+
+    workqueue_idx.reverse()
+
+    for idx in workqueue_idx:
+      F['instrs'].pop(idx)
+
+  return M
+
+import pdb
+
 @click.command(context_settings=CONTEXT_SETTINGS)
-@click.option('-p', '--pass', multiple=True,
-              help='Add pass')
-def main():
+@click.option('--passes', '-p', help='Add passes')
+@click.option('--filename', '-f', help='Input filename')
+@click.option('--passthru', is_flag=True, help='Skip all passes')
+def main(passes, filename, passthru):
   """BRIL opt
 
-  This does something
+  Available optimization passes:
 
+  tdce - trivial dead code elimination
+
+      Global pass to remove obvious dead instructions.  This pass can operate
+      on multiple basic blocks.
+
+  OPTIONS:
+
+  -p PASSLIST, --optpass=PASSLIST
+      Comma-separated list of passes to apply; can be used multiple times,
+      as in -p tdce -p copy_prop.
   """
-  pass
+  if passes:
+    if ',' in passes:
+      passes = passes.split(',')
+    else:
+      passes = [passes]
+
+  if filename:
+    file_contents = open(filename, 'r').read()
+    M = json.loads(file_contents)
+  else:
+    M = json.load(sys.stdin)
+
+  # module pass - trivial dead code elimination
+  while not passthru and len(passes):
+    if passes[0] == 'tdce':
+      M = tdce(M)
+      passes = passes[1:]
+    else:
+      print("Unknown pass:", passes[0])
+      sys.exit(1)
+
+  print(json.dumps(M))
+
+  return 0
 
 
 if __name__ == '__main__':
-  main()
+  ret = main()
+  sys.exit(ret)
