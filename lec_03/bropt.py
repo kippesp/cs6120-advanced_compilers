@@ -8,39 +8,39 @@ import sys
 TERMINATORS = 'jmp', 'br', 'ret'
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
-next_block_idx = 0
+# next_block_idx = 0
 
-def form_blocks(instrs):
-  cur_block = []
+#def form_blocks(instrs):
+#  cur_block = []
+#
+#  for I in instrs:
+#    if 'op' in I:
+#      cur_block.append(I)
+#      if I['op'] in TERMINATORS:
+#        yield cur_block
+#        cur_block = []
+#    else: # a label
+#      if cur_block:
+#        yield cur_block
+#      cur_block = [I]
+#
+#  if cur_block:
+#    yield cur_block
 
-  for I in instrs:
-    if 'op' in I:
-      cur_block.append(I)
-      if I['op'] in TERMINATORS:
-        yield cur_block
-        cur_block = []
-    else: # a label
-      if cur_block:
-        yield cur_block
-      cur_block = [I]
 
-  if cur_block:
-    yield cur_block
-
-
-def get_first_label(BB):
-  global next_block_idx
-  label = None
-  for I in BB:
-    if 'label' in I:
-      label = I['label']
-      break
-  if not label:
-    label = 'BB{0}'.format(next_block_idx)
-    next_block_idx = next_block_idx + 1
-    label_inst = {'label': label}
-    BB.insert(0, label_inst)
-  return label
+#def get_first_label(BB):
+#  global next_block_idx
+#  label = None
+#  for I in BB:
+#    if 'label' in I:
+#      label = I['label']
+#      break
+#  if not label:
+#    label = 'BB{0}'.format(next_block_idx)
+#    next_block_idx = next_block_idx + 1
+#    label_inst = {'label': label}
+#    BB.insert(0, label_inst)
+#  return label
 
 def tldce(BB):
   # Remove redefined-without-use instructions in local BB
@@ -150,6 +150,91 @@ def is_single_BB(M):
   if cur_block:
     yield cur_block
 
+# Module Pass: normalize basic blocks
+#
+# Creates default label at start of each basic block if no label exists.
+def normbbs(M):
+  workqueue_fns = []
+  for i,F in enumerate(M['functions']):
+    workqueue_fns.append((i, F))
+
+  def form_blocks(instrs):
+    cur_block = []
+
+    for I in instrs:
+      if 'op' in I:
+        cur_block.append(I)
+        if I['op'] in TERMINATORS:
+          yield cur_block
+          cur_block = []
+      else: # a label
+        if cur_block:
+          yield cur_block
+        cur_block = [I]
+
+    if cur_block:
+      yield cur_block
+
+  next_block_idx = 0
+
+  def normalize_first_label(BB):
+    nonlocal next_block_idx
+
+    label = None
+    for I in BB:
+      if 'label' in I:
+        label = I['label']
+        break
+    if not label:
+      label = 'BB{0}'.format(next_block_idx)
+      next_block_idx = next_block_idx + 1
+      label_inst = {'label': label, 'metalabel': 1}
+      BB.insert(0, label_inst)
+    return label
+
+  for i,F in workqueue_fns:
+    next_block_idx = 0
+
+    BBs = [BB for BB in form_blocks(F['instrs'])]
+
+    for idx,_ in enumerate(BBs):
+      normalize_first_label(BBs[idx])
+
+    # Now that all BBs are labeled, recreate the function using the
+    # BB instructions.
+
+    new_F = []
+    for BB in BBs:
+      for I in BB:
+        new_F.append(I)
+    M['functions'][i]['instrs'] = new_F
+
+  return M
+
+# Module Pass: clean meta data
+#
+# Removes unnecessary labels added by normbbs pass
+def cleanmeta(M):
+  workqueue_fns = []
+  for i,F in enumerate(M['functions']):
+    workqueue_fns.append((i, F))
+
+  workqueue_idx = []
+
+  for i,F in workqueue_fns:
+    for idx,I in enumerate(F['instrs']):
+      if 'label' in I and 'metalabel' in I:
+        if I['metalabel'] == 1:
+          workqueue_idx.append(idx)
+
+    workqueue_idx.reverse()
+
+    for idx in workqueue_idx:
+      F['instrs'].pop(idx)
+
+  return M
+
+
 # Module Pass: trivial dead code elimination
 #
 # Removes unused instructions.  A LHS variable definition with no RHS
@@ -202,6 +287,18 @@ def main(passes, filename, passthru):
       Global pass to remove obvious dead instructions.  This pass can operate
       on multiple basic blocks.
 
+  lvn - local value numbering
+
+      Adds metadata for follow on optimizations
+
+  normbbs - normalize all basic blocks to have a label
+
+      Finds all basic blocks and creates default label if necessary.
+
+  cleanmeta - clean meta data added by earlier passes
+
+      Removes meta labels not required for control flow.
+
   OPTIONS:
 
   -p PASSLIST, --optpass=PASSLIST
@@ -224,6 +321,15 @@ def main(passes, filename, passthru):
   while not passthru and len(passes):
     if passes[0] == 'tdce':
       M = tdce(M)
+      passes = passes[1:]
+    elif passes[0] == 'normbbs':
+      M = normbbs(M)
+      passes = passes[1:]
+    elif passes[0] == 'lvn':
+      #M = lvn(M)
+      passes = passes[1:]
+    elif passes[0] == 'cleanmeta':
+      M = cleanmeta(M)
       passes = passes[1:]
     else:
       print("Unknown pass:", passes[0])
