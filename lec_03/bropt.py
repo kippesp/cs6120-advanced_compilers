@@ -1,139 +1,17 @@
 # Trivial dead code elimination
 
 import click
-
 import json
 import sys
 
-TERMINATORS = 'jmp', 'br', 'ret'
+import pdb
+
+from pprint import pprint
+
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
-# next_block_idx = 0
-
-#def form_blocks(instrs):
-#  cur_block = []
-#
-#  for I in instrs:
-#    if 'op' in I:
-#      cur_block.append(I)
-#      if I['op'] in TERMINATORS:
-#        yield cur_block
-#        cur_block = []
-#    else: # a label
-#      if cur_block:
-#        yield cur_block
-#      cur_block = [I]
-#
-#  if cur_block:
-#    yield cur_block
-
-
-#def get_first_label(BB):
-#  global next_block_idx
-#  label = None
-#  for I in BB:
-#    if 'label' in I:
-#      label = I['label']
-#      break
-#  if not label:
-#    label = 'BB{0}'.format(next_block_idx)
-#    next_block_idx = next_block_idx + 1
-#    label_inst = {'label': label}
-#    BB.insert(0, label_inst)
-#  return label
-
-def tldce(BB):
-  # Remove redefined-without-use instructions in local BB
-  done = False
-
-  while not done:
-    done = True
-    unused_defs = {}
-    remove_idx = None
-
-    for idx,I in enumerate(BB):
-      if 'op' in I:
-        if 'args' in I:
-          for arg in I['args']:
-            if arg in unused_defs:
-              unused_defs.pop(arg)
-        if 'dest' in I:
-          if I['dest'] in unused_defs.keys():
-            remove_idx = unused_defs.pop(I['dest'])
-            done = False
-            break
-          else:
-            unused_defs[I['dest']] = idx
-
-    if remove_idx:
-      BB.pop(remove_idx)
-  return BB
-
-def tgdce(F):
-  # remove unused instuctions in global; does not consider CF
-  done = False
-
-  while not done:
-    work_queue = []
-
-    used_defs = {}
-
-    # Find all uses
-    for I in F['instrs']:
-      if 'op' in I:
-        if 'args' in I:
-          for arg in I['args']:
-            used_defs[arg] = 1
-
-    # Find any unused definitions
-    for idx,I in enumerate(F['instrs']):
-      if 'op' in I:
-        if I['op'] in ['call', 'print']:
-          continue
-        if 'dest' in I:
-          if I['dest'] not in used_defs:
-            work_queue.append(idx)
-
-    work_queue.reverse()
-
-    for idx in work_queue:
-      F['instrs'].pop(idx)
-
-    done = len(work_queue) == 0
-
-  return F
-
-
-
-def main_old():
-  global next_block_idx
-  M = json.load(sys.stdin)
-  M2 = M.copy()
-  M2['functions'] = []
-  for F in M['functions']:
-    next_block_idx = 0
-    new_BBs = []
-    for BB in form_blocks(F['instrs']):
-      get_first_label(BB)
-      new_BBs.append(tldce(BB))
-
-    F['instrs'] = []
-    for BB in new_BBs:
-      for I in BB:
-        F['instrs'].append(I)
-    M2['functions'].append(F)
-
-  new_Fs = []
-
-  for F in M['functions']:
-    new_Fs.append(tgdce(F))
-
-  M['functions'] = new_Fs
-
-  print(json.dumps(M2))
-
-
-def is_single_BB(M):
+def form_blocks(instrs):
+  TERMINATORS = 'jmp', 'br', 'ret'
   cur_block = []
 
   for I in instrs:
@@ -157,23 +35,6 @@ def normbbs(M):
   workqueue_fns = []
   for i,F in enumerate(M['functions']):
     workqueue_fns.append((i, F))
-
-  def form_blocks(instrs):
-    cur_block = []
-
-    for I in instrs:
-      if 'op' in I:
-        cur_block.append(I)
-        if I['op'] in TERMINATORS:
-          yield cur_block
-          cur_block = []
-      else: # a label
-        if cur_block:
-          yield cur_block
-        cur_block = [I]
-
-    if cur_block:
-      yield cur_block
 
   next_block_idx = 0
 
@@ -234,7 +95,6 @@ def cleanmeta(M):
 
   return M
 
-
 # Module Pass: trivial dead code elimination
 #
 # Removes unused instructions.  A LHS variable definition with no RHS
@@ -271,7 +131,98 @@ def tdce(M):
 
   return M
 
-import pdb
+# Module Pass: local value numbering
+#
+# Removes unused instructions.  A LHS variable definition with no RHS
+# uses is dead.
+def lvn(M):
+  def canonical_lvn_value(I):
+    nonlocal lvn_vars
+
+    if I['op'] == 'const':
+      lvn_value = (I['op'], I['type'], I['value'])
+    else:
+      if 'args' not in I:
+        raise 'unhandled case of no args'
+      sorted_named_args = sorted(I['args'])
+
+      # Convert each named argument to its LVN value
+      sorted_args = [lvn_vars[var] for var in sorted_named_args]
+
+      if 'type' in I:
+        lvn_value = (I['op'], I['type'], *sorted_args)
+      else:
+        lvn_value = (I['op'], *sorted_args)
+    return lvn_value
+
+  def find_lvn_value(lvn_value_needle):
+    nonlocal lvn_table
+
+    for idx in lvn_table:
+      lvn_value, lvn_var = lvn_table[idx]
+
+      if lvn_value == lvn_value_needle:
+        return idx
+
+  workqueue_fns = []
+  for i,F in enumerate(M['functions']):
+    workqueue_fns.append((i, F))
+
+  for i,F in workqueue_fns:
+    BBs = [BB for BB in form_blocks(F['instrs'])]
+
+    # Only a single basic block is supported
+    if len(BBs) > 1:
+      continue
+
+    for BB in BBs:
+      # Initialize LVN table
+      #   lvn_table[instruction_idx] = (lvn_value, lvn_var)
+      lvn_table = {}
+
+      # Initialize LVN vars table
+      #   lvn_vars[lvn_var] = instruction_idx (in lvn_table)
+      lvn_vars = {}
+
+      # Initialize LVN values table
+      #   lvn_values[lvn_value] = use_count
+      lvn_values = {}
+
+      # Initialize LVN value/var table index
+      lvn_idx = 1
+
+      for I in BB:
+        if 'op' not in I:
+          continue
+        if 'dest' not in I:
+          continue
+
+        lvn_value = canonical_lvn_value(I)
+        lvn_var = I['dest']
+
+        # Has this value been previously computed?
+        if lvn_value in lvn_values:
+          # Yes, the earlier lvn_value will be the canonical home
+          lvn_value_def_idx = find_lvn_value(lvn_value)
+          lvn_vars[lvn_var] = lvn_value_def_idx
+        else:
+          # No, add the lvn_value to the table and make an entry in lvn_vars
+          lvn_table[lvn_idx] = (lvn_value, lvn_var)
+          lvn_vars[lvn_var] = lvn_idx
+          lvn_idx = lvn_idx + 1
+
+        lvn_values[lvn_value] = lvn_values.get(lvn_value, 0) + 1
+
+        # TODO: BASIC LVN enabled optimization
+        # TODO: common sub expression elimination
+        # TODO: Reconstruct I using LVN canonical home
+        # TODO: sum2 becomes the ident instruction
+        # TODO: mul becomes sum1 mul sum1
+
+      pdb.set_trace()
+
+
+
 
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.option('--passes', '-p', help='Add passes')
@@ -326,7 +277,7 @@ def main(passes, filename, passthru):
       M = normbbs(M)
       passes = passes[1:]
     elif passes[0] == 'lvn':
-      #M = lvn(M)
+      M = lvn(M)
       passes = passes[1:]
     elif passes[0] == 'cleanmeta':
       M = cleanmeta(M)
@@ -338,7 +289,6 @@ def main(passes, filename, passthru):
   print(json.dumps(M))
 
   return 0
-
 
 if __name__ == '__main__':
   ret = main()
