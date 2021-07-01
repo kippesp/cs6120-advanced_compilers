@@ -231,6 +231,17 @@ def lvn_core(M, subpass_name='cse'):
           if 'dest' not in I:
             continue
 
+          # CONSTPROP - constant propagation
+          if subpass_name == 'constprop':
+            if I['op'] == 'id':
+              canonical_lvn_idx = lvn_vars[I['args'][0]]
+              if BBs[BB_idx][canonical_lvn_idx]['op'] == 'const':
+                new_I = BBs[BB_idx][canonical_lvn_idx].copy()
+                new_I['dest'] = I['dest']
+                BBs[BB_idx][I_idx] = new_I
+                I = new_I
+                changed = True
+
           lvn_value = canonical_lvn_value(I)
           lvn_var = I['dest']
 
@@ -273,6 +284,18 @@ def lvn_core(M, subpass_name='cse'):
 def cse(M):
   return lvn_core(M, 'cse')
 
+# Module Pass: constant propagation
+#
+# Removes copies of constants
+def constprop(M):
+  return lvn_core(M, 'constprop')
+
+# Module Pass: constant folding
+#
+# Reduces operations that deal only with constants
+def constfold(M):
+  pass
+
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.option('--passes', '-p', help='Add passes')
 @click.option('--filename', '-f', help='Input filename')
@@ -287,13 +310,17 @@ def main(passes, filename, passthru):
       Global pass to remove obvious dead instructions.  This pass can operate
       on multiple basic blocks.
 
-  lvn - local value numbering
-
-      Adds metadata for follow on optimizations
-
   normbbs - normalize all basic blocks to have a label
 
       Finds all basic blocks and creates default label if necessary.
+
+  cse - LVN pass for common subexpression elimination
+
+      Removes redundant computations
+
+  constprop - LVN pass to remove copies of constants
+
+  constfold - combines trivial operations acting on constants
 
   cleanmeta - clean meta data added by earlier passes
 
@@ -327,6 +354,9 @@ def main(passes, filename, passthru):
       passes = passes[1:]
     elif passes[0] == 'cse':
       M = cse(M)
+      passes = passes[1:]
+    elif passes[0] == 'constprop':
+      M = constprop(M)
       passes = passes[1:]
     elif passes[0] == 'cleanmeta':
       M = cleanmeta(M)
