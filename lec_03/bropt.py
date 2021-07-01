@@ -138,9 +138,12 @@ def tdce(M):
 
 # Module Pass: local value numbering
 #
-# Removes unused instructions.  A LHS variable definition with no RHS
-# uses is dead.
-def lvn(M):
+# Specialized with subpass_name:
+#
+#   cse - common subexpression elimination
+#   constprop - constant propagation
+#   constfold - constant folding
+def lvn_core(M, subpass_name='cse'):
   def canonical_lvn_value(I):
     nonlocal lvn_vars
 
@@ -176,84 +179,99 @@ def lvn(M):
   for i,F in enumerate(M['functions']):
     workqueue_fns.append((i, F))
 
-  for i,F in workqueue_fns:
-    BBs = [BB for BB in form_blocks(F['instrs'])]
+  changed = True
 
-    # Only a single basic block is supported
-    if len(BBs) > 1:
-      continue
+  while changed:
+    changed = False
 
-    for BB_idx, _ in enumerate(BBs):
-      # Initialize LVN table
-      #   lvn_table[instruction_idx] = (lvn_value, lvn_var)
-      lvn_table = {}
+    for i,F in workqueue_fns:
+      BBs = [BB for BB in form_blocks(F['instrs'])]
 
-      # Initialize LVN vars table
-      #   lvn_vars[lvn_var] = instruction_idx (in lvn_table)
-      lvn_vars = {}
+      # Only a single basic block is supported
+      if len(BBs) > 1:
+        continue
 
-      # Initialize LVN values table
-      #   lvn_values[lvn_value] = use_count
-      lvn_values = {}
+      for BB_idx, _ in enumerate(BBs):
+        # Initialize LVN table
+        #   lvn_table[instruction_idx] = (lvn_value, lvn_var)
+        lvn_table = {}
 
-      # Initialize LVN value/var table index
-      lvn_idx = 1
+        # Initialize LVN vars table
+        #   lvn_vars[lvn_var] = instruction_idx (in lvn_table)
+        lvn_vars = {}
 
-      for I_idx, I in enumerate(BBs[BB_idx]):
-        def reconstruct_I(I):
-          nonlocal lvn_value
-          nonlocal lvn_table
-          nonlocal lvn_vars
+        # Initialize LVN values table
+        #   lvn_values[lvn_value] = use_count
+        lvn_values = {}
 
-          assert(I['op'] != 'const')
+        # Initialize LVN value/var table index
+        lvn_idx = 1
 
-          new_I = {'dest' : I['dest'], 'op' : I['op'], 'type' : I['type']}
+        for I_idx, I in enumerate(BBs[BB_idx]):
+          def reconstruct_I(I):
+            nonlocal lvn_value
+            nonlocal lvn_table
+            nonlocal lvn_vars
 
-          # Lookup the instruction creating the canonical definition
-          #canonical_instruction_idx = find_lvn_value(lvn_value)
+            assert(I['op'] != 'const')
 
-          canonical_args = [lvn_table[lvn_vars[arg]][1] for arg in I['args']]
+            new_I = {'dest' : I['dest'], 'op' : I['op'], 'type' : I['type']}
 
-          new_I['args'] = canonical_args
+            # Lookup the instruction creating the canonical definition
+            #canonical_instruction_idx = find_lvn_value(lvn_value)
 
-          return new_I
+            canonical_args = [lvn_table[lvn_vars[arg]][1] for arg in I['args']]
 
-        if 'op' not in I:
-          continue
-        if 'dest' not in I:
-          continue
+            new_I['args'] = canonical_args
 
-        lvn_value = canonical_lvn_value(I)
-        lvn_var = I['dest']
+            return new_I
 
-        # Has this value been previously computed?
-        if lvn_value in lvn_values:
-          # Yes, the earlier lvn_value will be the canonical home
-          lvn_value_def_idx = find_lvn_value(lvn_value)
-          lvn_vars[lvn_var] = lvn_value_def_idx
-        else:
-          # No, add the lvn_value to the table and make an entry in lvn_vars
-          lvn_table[lvn_idx] = (lvn_value, lvn_var)
-          lvn_vars[lvn_var] = lvn_idx
-          lvn_idx = lvn_idx + 1
+          if 'op' not in I:
+            continue
+          if 'dest' not in I:
+            continue
 
-        lvn_values[lvn_value] = lvn_values.get(lvn_value, 0) + 1
+          lvn_value = canonical_lvn_value(I)
+          lvn_var = I['dest']
 
-        # CSE - common sub-expression elimination
-        if 'dest' in I and I['op'] != 'const':
-          new_I = reconstruct_I(I)
-          BBs[BB_idx][I_idx] = new_I
+          # Has this value been previously computed?
+          if lvn_value in lvn_values:
+            # Yes, the earlier lvn_value will be the canonical home
+            lvn_value_def_idx = find_lvn_value(lvn_value)
+            lvn_vars[lvn_var] = lvn_value_def_idx
+          else:
+            # No, add the lvn_value to the table and make an entry in lvn_vars
+            lvn_table[lvn_idx] = (lvn_value, lvn_var)
+            lvn_vars[lvn_var] = lvn_idx
+            lvn_idx = lvn_idx + 1
 
-        # TODO: sum2 becomes the ident instruction
-        # TODO: mul becomes sum1 mul sum1
+          lvn_values[lvn_value] = lvn_values.get(lvn_value, 0) + 1
 
-    # rewrite function after pass
-    M['functions'][i]['instrs'] = []
-    for BB in BBs:
-      for I in BB:
-        M['functions'][i]['instrs'].append(I)
+          # CSE - common sub-expression elimination
+          if subpass_name == 'cse':
+            if 'dest' in I and I['op'] != 'const':
+              new_I = reconstruct_I(I)
+              BBs[BB_idx][I_idx] = new_I
+              changed = new_I != I
+
+          # TODO: sum2 becomes the ident instruction
+          # TODO: mul becomes sum1 mul sum1
+
+      if changed:
+        # rewrite function after pass
+        M['functions'][i]['instrs'] = []
+        for BB in BBs:
+          for I in BB:
+            M['functions'][i]['instrs'].append(I)
 
   return M
+
+# Module Pass: common subexpression elimination
+#
+# LVN specialization pass.  Removes unused instructions.  A LHS variable
+# definition with no RHS uses is dead.
+def cse(M):
+  return lvn_core(M, 'cse')
 
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.option('--passes', '-p', help='Add passes')
@@ -307,8 +325,8 @@ def main(passes, filename, passthru):
     elif passes[0] == 'normbbs':
       M = normbbs(M)
       passes = passes[1:]
-    elif passes[0] == 'lvn':
-      M = lvn(M)
+    elif passes[0] == 'cse':
+      M = cse(M)
       passes = passes[1:]
     elif passes[0] == 'cleanmeta':
       M = cleanmeta(M)
