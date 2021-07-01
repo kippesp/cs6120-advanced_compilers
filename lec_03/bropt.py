@@ -413,14 +413,22 @@ def main(passes, filename, passthru):
   OPTIONS:
 
   -p PASSLIST, --optpass=PASSLIST
+
       Comma-separated list of passes to apply; can be used multiple times,
       as in -p tdce -p copy_prop.
+
+      Default:
+
+          'tdce,normbbs,cse,constprop,reassign,constfold,cleanmeta,tdce'
   """
   if passes:
     if ',' in passes:
       passes = passes.split(',')
     else:
       passes = [passes]
+  else:
+      # Default all passes
+      passes = 'tdce,normbbs,cse,constprop,reassign,constfold,cleanmeta,tdce'.split(',')
 
   if filename:
     file_contents = open(filename, 'r').read()
