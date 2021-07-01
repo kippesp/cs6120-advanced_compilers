@@ -175,7 +175,7 @@ def lvn(M):
     if len(BBs) > 1:
       continue
 
-    for BB in BBs:
+    for BB_idx, _ in enumerate(BBs):
       # Initialize LVN table
       #   lvn_table[instruction_idx] = (lvn_value, lvn_var)
       lvn_table = {}
@@ -191,7 +191,25 @@ def lvn(M):
       # Initialize LVN value/var table index
       lvn_idx = 1
 
-      for I in BB:
+      for I_idx, I in enumerate(BBs[BB_idx]):
+        def reconstruct_I(I):
+          nonlocal lvn_value
+          nonlocal lvn_table
+          nonlocal lvn_vars
+
+          assert(I['op'] != 'const')
+
+          new_I = {'dest' : I['dest'], 'op' : I['op'], 'type' : I['type']}
+
+          # Lookup the instruction creating the canonical definition
+          #canonical_instruction_idx = find_lvn_value(lvn_value)
+
+          canonical_args = [lvn_table[lvn_vars[arg]][1] for arg in I['args']]
+
+          new_I['args'] = canonical_args
+
+          return new_I
+
         if 'op' not in I:
           continue
         if 'dest' not in I:
@@ -213,16 +231,21 @@ def lvn(M):
 
         lvn_values[lvn_value] = lvn_values.get(lvn_value, 0) + 1
 
-        # TODO: BASIC LVN enabled optimization
-        # TODO: common sub expression elimination
-        # TODO: Reconstruct I using LVN canonical home
+        # CSE - common sub-expression elimination
+        if 'dest' in I and I['op'] != 'const':
+          new_I = reconstruct_I(I)
+          BBs[BB_idx][I_idx] = new_I
+
         # TODO: sum2 becomes the ident instruction
         # TODO: mul becomes sum1 mul sum1
 
-      pdb.set_trace()
+    # rewrite function after pass
+    M['functions'][i]['instrs'] = []
+    for BB in BBs:
+      for I in BB:
+        M['functions'][i]['instrs'].append(I)
 
-
-
+  return M
 
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.option('--passes', '-p', help='Add passes')
