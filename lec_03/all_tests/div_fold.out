@@ -1,4 +1,4 @@
 @main {
-  quo2: int = const 2;
+  quo1: int = const 2;
   print quo1;
 }

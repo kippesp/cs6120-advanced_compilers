@@ -208,28 +208,10 @@ def lvn_core(M, subpass_name='cse'):
         lvn_idx = 1
 
         for I_idx, I in enumerate(BBs[BB_idx]):
-          def reconstruct_I(I):
-            nonlocal lvn_value
-            nonlocal lvn_table
-            nonlocal lvn_vars
-
-            assert(I['op'] != 'const')
-
-            new_I = {'dest' : I['dest'], 'op' : I['op'], 'type' : I['type']}
-
-            # Lookup the instruction creating the canonical definition
-            #canonical_instruction_idx = find_lvn_value(lvn_value)
-
-            canonical_args = [lvn_table[lvn_vars[arg]][1] for arg in I['args']]
-
-            new_I['args'] = canonical_args
-
-            return new_I
-
-          if 'op' not in I:
+          if 'op' not in I and 'args' not in I and 'dest' not in I:
             continue
-          if 'dest' not in I:
-            continue
+
+          #pdb.set_trace()
 
           # CONSTPROP - constant propagation
           if subpass_name == 'constprop':
@@ -242,7 +224,7 @@ def lvn_core(M, subpass_name='cse'):
                 I = new_I
                 changed = True
           # CONSTFOLD - constant folding
-          if subpass_name == 'constfold':
+          elif subpass_name == 'constfold':
             if I['op'] == 'add' and I['type'] == 'int':
               operand_0_lvn_idx = lvn_vars[I['args'][0]]
               operand_1_lvn_idx = lvn_vars[I['args'][1]]
@@ -256,25 +238,90 @@ def lvn_core(M, subpass_name='cse'):
                 BBs[BB_idx][I_idx] = new_I
                 I = new_I
                 changed = True
+            elif I['op'] == 'sub' and I['type'] == 'int':
+              operand_0_lvn_idx = lvn_vars[I['args'][0]]
+              operand_1_lvn_idx = lvn_vars[I['args'][1]]
+              if (BBs[BB_idx][operand_0_lvn_idx]['op'] == 'const' and
+                  BBs[BB_idx][operand_1_lvn_idx]['op'] == 'const'):
+                operand_0 = BBs[BB_idx][operand_0_lvn_idx]['value']
+                operand_1 = BBs[BB_idx][operand_1_lvn_idx]['value']
+                folded_operand = operand_0 - operand_1
+                new_I = {'dest' : I['dest'], 'op' : 'const', 'type' : I['type']}
+                new_I['value'] = folded_operand
+                BBs[BB_idx][I_idx] = new_I
+                I = new_I
+                changed = True
+            elif I['op'] == 'mul' and I['type'] == 'int':
+              operand_0_lvn_idx = lvn_vars[I['args'][0]]
+              operand_1_lvn_idx = lvn_vars[I['args'][1]]
+              if (BBs[BB_idx][operand_0_lvn_idx]['op'] == 'const' and
+                  BBs[BB_idx][operand_1_lvn_idx]['op'] == 'const'):
+                operand_0 = BBs[BB_idx][operand_0_lvn_idx]['value']
+                operand_1 = BBs[BB_idx][operand_1_lvn_idx]['value']
+                folded_operand = operand_0 * operand_1
+                new_I = {'dest' : I['dest'], 'op' : 'const', 'type' : I['type']}
+                new_I['value'] = folded_operand
+                BBs[BB_idx][I_idx] = new_I
+                I = new_I
+                changed = True
+            elif I['op'] == 'div' and I['type'] == 'int':
+              operand_0_lvn_idx = lvn_vars[I['args'][0]]
+              operand_1_lvn_idx = lvn_vars[I['args'][1]]
+              if (BBs[BB_idx][operand_0_lvn_idx]['op'] == 'const' and
+                  BBs[BB_idx][operand_1_lvn_idx]['op'] == 'const'):
+                operand_0 = BBs[BB_idx][operand_0_lvn_idx]['value']
+                operand_1 = BBs[BB_idx][operand_1_lvn_idx]['value']
+                folded_operand = int(operand_0 / operand_1)
+                new_I = {'dest' : I['dest'], 'op' : 'const', 'type' : I['type']}
+                new_I['value'] = folded_operand
+                BBs[BB_idx][I_idx] = new_I
+                I = new_I
+                changed = True
+
+          #pdb.set_trace()
 
           lvn_value = canonical_lvn_value(I)
-          lvn_var = I['dest']
-
-          # Has this value been previously computed?
-          if lvn_value in lvn_values:
-            # Yes, the earlier lvn_value will be the canonical home
-            lvn_value_def_idx = find_lvn_value(lvn_value)
-            lvn_vars[lvn_var] = lvn_value_def_idx
+          if 'dest' in I:
+            lvn_var = I['dest']
           else:
-            # No, add the lvn_value to the table and make an entry in lvn_vars
-            lvn_table[lvn_idx] = (lvn_value, lvn_var)
-            lvn_vars[lvn_var] = lvn_idx
-            lvn_idx = lvn_idx + 1
+            lvn_var = None
 
-          lvn_values[lvn_value] = lvn_values.get(lvn_value, 0) + 1
+          if 'dest' in I:
+            # Has this value been previously computed?
+            if lvn_value not in lvn_values:
+              # No, add the lvn_value to the table and make an entry in lvn_vars
+              lvn_table[lvn_idx] = (lvn_value, lvn_var)
+              lvn_vars[lvn_var] = lvn_idx
+              lvn_idx = lvn_idx + 1
+              lvn_values[lvn_value] = 0
+            else:
+              # Yes, the earlier lvn_value will be the canonical home
+              lvn_value_def_idx = find_lvn_value(lvn_value)
+              lvn_vars[lvn_var] = lvn_value_def_idx
+
+          # For each argument of the instruction, update its use count
+          if 'args' in I:
+            for arg in I['args']:
+              arg_lvn_value = lvn_table[lvn_vars[arg]][0]
+              lvn_values[arg_lvn_value] += 1
 
           # CSE - common sub-expression elimination
           if subpass_name == 'cse':
+            def reconstruct_I(I):
+              nonlocal lvn_value
+              nonlocal lvn_table
+              nonlocal lvn_vars
+
+              assert(I['op'] != 'const')
+
+              new_I = {'dest' : I['dest'], 'op' : I['op'], 'type' : I['type']}
+
+              canonical_args = [lvn_table[lvn_vars[arg]][1] for arg in I['args']]
+
+              new_I['args'] = canonical_args
+
+              return new_I
+
             if 'dest' in I and I['op'] != 'const':
               new_I = reconstruct_I(I)
               BBs[BB_idx][I_idx] = new_I
@@ -282,6 +329,26 @@ def lvn_core(M, subpass_name='cse'):
 
           # TODO: sum2 becomes the ident instruction
           # TODO: mul becomes sum1 mul sum1
+
+        # REASSIGN - reassignment of dead code
+        if subpass_name == 'reassign':
+          # find any lvn_values that were created but never used
+          workqueue = []
+          for lvn_value in lvn_values:
+            if lvn_values[lvn_value] == 0:
+              workqueue.append(lvn_value)
+
+          if not workqueue:
+            continue
+
+          delete_queue = [find_lvn_value(lvn_value) for lvn_value in workqueue]
+          sorted(delete_queue).reverse()
+          delete_queue = tuple(delete_queue)
+
+          changed = True
+
+          for I_idx in delete_queue:
+            BBs[BB_idx].pop(I_idx)
 
       if changed:
         # rewrite function after pass
@@ -311,6 +378,12 @@ def constprop(M):
 def constfold(M):
   return lvn_core(M, 'constfold')
 
+# Module Pass: LVN variable reassignments
+#
+# More dead variables caused by later reassignments
+def reassign(M):
+  return lvn_core(M, 'reassign')
+
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.option('--passes', '-p', help='Add passes')
 @click.option('--filename', '-f', help='Input filename')
@@ -336,6 +409,8 @@ def main(passes, filename, passthru):
   constprop - LVN pass to remove copies of constants
 
   constfold - LVN pass to combine trivial operations acting on constants
+
+  lvndce - LVN pass for dead code elimination
 
   cleanmeta - clean meta data added by earlier passes
 
@@ -375,6 +450,9 @@ def main(passes, filename, passthru):
       passes = passes[1:]
     elif passes[0] == 'constfold':
       M = constfold(M)
+      passes = passes[1:]
+    elif passes[0] == 'reassign':
+      M = reassign(M)
       passes = passes[1:]
     elif passes[0] == 'cleanmeta':
       M = cleanmeta(M)
