@@ -211,8 +211,6 @@ def lvn_core(M, subpass_name='cse'):
           if 'op' not in I and 'args' not in I and 'dest' not in I:
             continue
 
-          #pdb.set_trace()
-
           # CONSTPROP - constant propagation
           if subpass_name == 'constprop':
             if I['op'] == 'id':
@@ -271,14 +269,13 @@ def lvn_core(M, subpass_name='cse'):
                   BBs[BB_idx][operand_1_lvn_idx]['op'] == 'const'):
                 operand_0 = BBs[BB_idx][operand_0_lvn_idx]['value']
                 operand_1 = BBs[BB_idx][operand_1_lvn_idx]['value']
-                folded_operand = int(operand_0 / operand_1)
-                new_I = {'dest' : I['dest'], 'op' : 'const', 'type' : I['type']}
-                new_I['value'] = folded_operand
-                BBs[BB_idx][I_idx] = new_I
-                I = new_I
-                changed = True
-
-          #pdb.set_trace()
+                if operand_1 != 0:
+                  folded_operand = int(operand_0 / operand_1)
+                  new_I = {'dest' : I['dest'], 'op' : 'const', 'type' : I['type']}
+                  new_I['value'] = folded_operand
+                  BBs[BB_idx][I_idx] = new_I
+                  I = new_I
+                  changed = True
 
           lvn_value = canonical_lvn_value(I)
           if 'dest' in I:
@@ -326,9 +323,6 @@ def lvn_core(M, subpass_name='cse'):
               new_I = reconstruct_I(I)
               BBs[BB_idx][I_idx] = new_I
               changed = new_I != I
-
-          # TODO: sum2 becomes the ident instruction
-          # TODO: mul becomes sum1 mul sum1
 
         # REASSIGN - reassignment of dead code
         if subpass_name == 'reassign':
