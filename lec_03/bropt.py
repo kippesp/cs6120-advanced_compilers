@@ -100,34 +100,39 @@ def cleanmeta(M):
 # Removes unused instructions.  A LHS variable definition with no RHS
 # uses is dead.
 def tdce(M):
-  workqueue_fns = []
-  for i,F in enumerate(M['functions']):
-    workqueue_fns.append((i, F))
+  changed = True
 
-  for i,F in workqueue_fns:
-    used_defs = {}
-    workqueue_idx = []
+  while changed:
+    workqueue_fns = []
+    for i,F in enumerate(M['functions']):
+      workqueue_fns.append((i, F))
 
-    # Find all uses
-    for I in F['instrs']:
-      if 'op' in I:
-        if 'args' in I:
-          for arg in I['args']:
-            used_defs[arg] = 1
+    for i,F in workqueue_fns:
+      used_defs = {}
+      workqueue_idx = []
 
-    # Find any unused definitions
-    for idx,I in enumerate(F['instrs']):
-      if 'op' in I:
-        if I['op'] in ['call', 'print']:
-          continue
-        if 'dest' in I:
-          if I['dest'] not in used_defs:
-            workqueue_idx.append(idx)
+      # Find all uses
+      for I in F['instrs']:
+        if 'op' in I:
+          if 'args' in I:
+            for arg in I['args']:
+              used_defs[arg] = 1
 
-    workqueue_idx.reverse()
+      # Find any unused definitions
+      for idx,I in enumerate(F['instrs']):
+        if 'op' in I:
+          if I['op'] in ['call', 'print']:
+            continue
+          if 'dest' in I:
+            if I['dest'] not in used_defs:
+              workqueue_idx.append(idx)
 
-    for idx in workqueue_idx:
-      F['instrs'].pop(idx)
+      workqueue_idx.reverse()
+
+      changed = True if workqueue_idx else False
+
+      for idx in workqueue_idx:
+        F['instrs'].pop(idx)
 
   return M
 
