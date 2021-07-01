@@ -241,6 +241,21 @@ def lvn_core(M, subpass_name='cse'):
                 BBs[BB_idx][I_idx] = new_I
                 I = new_I
                 changed = True
+          # CONSTFOLD - constant folding
+          if subpass_name == 'constfold':
+            if I['op'] == 'add' and I['type'] == 'int':
+              operand_0_lvn_idx = lvn_vars[I['args'][0]]
+              operand_1_lvn_idx = lvn_vars[I['args'][1]]
+              if (BBs[BB_idx][operand_0_lvn_idx]['op'] == 'const' and
+                  BBs[BB_idx][operand_1_lvn_idx]['op'] == 'const'):
+                operand_0 = BBs[BB_idx][operand_0_lvn_idx]['value']
+                operand_1 = BBs[BB_idx][operand_1_lvn_idx]['value']
+                folded_operand = operand_0 + operand_1
+                new_I = {'dest' : I['dest'], 'op' : 'const', 'type' : I['type']}
+                new_I['value'] = folded_operand
+                BBs[BB_idx][I_idx] = new_I
+                I = new_I
+                changed = True
 
           lvn_value = canonical_lvn_value(I)
           lvn_var = I['dest']
@@ -294,7 +309,7 @@ def constprop(M):
 #
 # Reduces operations that deal only with constants
 def constfold(M):
-  pass
+  return lvn_core(M, 'constfold')
 
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.option('--passes', '-p', help='Add passes')
@@ -320,7 +335,7 @@ def main(passes, filename, passthru):
 
   constprop - LVN pass to remove copies of constants
 
-  constfold - combines trivial operations acting on constants
+  constfold - LVN pass to combine trivial operations acting on constants
 
   cleanmeta - clean meta data added by earlier passes
 
@@ -357,6 +372,9 @@ def main(passes, filename, passthru):
       passes = passes[1:]
     elif passes[0] == 'constprop':
       M = constprop(M)
+      passes = passes[1:]
+    elif passes[0] == 'constfold':
+      M = constfold(M)
       passes = passes[1:]
     elif passes[0] == 'cleanmeta':
       M = cleanmeta(M)

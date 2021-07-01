@@ -1,0 +1,4 @@
+@main {
+  diff1: int = const -2;
+  print diff1;
+}

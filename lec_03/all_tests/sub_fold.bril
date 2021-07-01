@@ -1,0 +1,6 @@
+@main {
+  a: int = const 2;
+  b: int = const 4;
+  diff1: int = sub a b;
+  print diff1;
+}
