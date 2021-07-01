@@ -228,8 +228,8 @@ def lvn_core(M, subpass_name='cse'):
               operand_1_lvn_idx = lvn_vars[I['args'][1]]
               if (BBs[BB_idx][operand_0_lvn_idx]['op'] == 'const' and
                   BBs[BB_idx][operand_1_lvn_idx]['op'] == 'const'):
-                operand_0 = BBs[BB_idx][operand_0_lvn_idx]['value']
-                operand_1 = BBs[BB_idx][operand_1_lvn_idx]['value']
+                operand_0 = lvn_table[operand_0_lvn_idx][0][2]
+                operand_1 = lvn_table[operand_1_lvn_idx][0][2]
                 folded_operand = operand_0 + operand_1
                 new_I = {'dest' : I['dest'], 'op' : 'const', 'type' : I['type']}
                 new_I['value'] = folded_operand
@@ -241,8 +241,8 @@ def lvn_core(M, subpass_name='cse'):
               operand_1_lvn_idx = lvn_vars[I['args'][1]]
               if (BBs[BB_idx][operand_0_lvn_idx]['op'] == 'const' and
                   BBs[BB_idx][operand_1_lvn_idx]['op'] == 'const'):
-                operand_0 = BBs[BB_idx][operand_0_lvn_idx]['value']
-                operand_1 = BBs[BB_idx][operand_1_lvn_idx]['value']
+                operand_0 = lvn_table[operand_0_lvn_idx][0][2]
+                operand_1 = lvn_table[operand_1_lvn_idx][0][2]
                 folded_operand = operand_0 - operand_1
                 new_I = {'dest' : I['dest'], 'op' : 'const', 'type' : I['type']}
                 new_I['value'] = folded_operand
@@ -254,8 +254,8 @@ def lvn_core(M, subpass_name='cse'):
               operand_1_lvn_idx = lvn_vars[I['args'][1]]
               if (BBs[BB_idx][operand_0_lvn_idx]['op'] == 'const' and
                   BBs[BB_idx][operand_1_lvn_idx]['op'] == 'const'):
-                operand_0 = BBs[BB_idx][operand_0_lvn_idx]['value']
-                operand_1 = BBs[BB_idx][operand_1_lvn_idx]['value']
+                operand_0 = lvn_table[operand_0_lvn_idx][0][2]
+                operand_1 = lvn_table[operand_1_lvn_idx][0][2]
                 folded_operand = operand_0 * operand_1
                 new_I = {'dest' : I['dest'], 'op' : 'const', 'type' : I['type']}
                 new_I['value'] = folded_operand
@@ -267,8 +267,8 @@ def lvn_core(M, subpass_name='cse'):
               operand_1_lvn_idx = lvn_vars[I['args'][1]]
               if (BBs[BB_idx][operand_0_lvn_idx]['op'] == 'const' and
                   BBs[BB_idx][operand_1_lvn_idx]['op'] == 'const'):
-                operand_0 = BBs[BB_idx][operand_0_lvn_idx]['value']
-                operand_1 = BBs[BB_idx][operand_1_lvn_idx]['value']
+                operand_0 = lvn_table[operand_0_lvn_idx][0][2]
+                operand_1 = lvn_table[operand_1_lvn_idx][0][2]
                 if operand_1 != 0:
                   folded_operand = int(operand_0 / operand_1)
                   new_I = {'dest' : I['dest'], 'op' : 'const', 'type' : I['type']}

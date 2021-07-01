@@ -1,5 +1,12 @@
 @main {
-  a: int = const 100;
-  a: int = const 42;
-  print a;
+  a: int = const 2;
+  b: int = const 4;
+  sum1: int = add a b;
+  one: int = const 1;
+  acc: int = add sum1 one;
+  sum1: int = add b one;
+  sum2: int = add a b;
+  sum3: int = add acc sum1;
+  sum4: int = mul sum2 sum3;
+  print sum4;
 }
