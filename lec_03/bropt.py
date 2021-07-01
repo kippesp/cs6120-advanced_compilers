@@ -149,7 +149,10 @@ def lvn(M):
     else:
       if 'args' not in I:
         raise 'unhandled case of no args'
-      sorted_named_args = sorted(I['args'])
+      if I['op'] in ('add', 'mul', 'eq', 'and', 'or'):
+        sorted_named_args = sorted(I['args'])
+      else:
+        sorted_named_args = I['args']
 
       # Convert each named argument to its LVN value
       sorted_args = [lvn_vars[var] for var in sorted_named_args]
