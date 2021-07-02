@@ -1,1 +1,4 @@
-../all_tests/reassign.out
+@main {
+  sum4: int = const 60;
+  print sum4;
+}

@@ -207,6 +207,10 @@ def lvn_core(M, subpass_name='cse'):
         # Initialize LVN value/var table index
         lvn_idx = 1
 
+        # Variable rename map
+        #   lvn_renamings[old_var] = new_var
+        lvn_renamings = {}
+
         for I_idx, I in enumerate(BBs[BB_idx]):
           if 'op' not in I and 'args' not in I and 'dest' not in I:
             continue
@@ -276,6 +280,27 @@ def lvn_core(M, subpass_name='cse'):
                   BBs[BB_idx][I_idx] = new_I
                   I = new_I
                   changed = True
+
+          # UNAME - unique name on assignment
+          if subpass_name == 'uname':
+            new_I = I.copy()
+
+            if 'args' in I:
+              for arg_idx, argname in enumerate(I['args']):
+                if argname in lvn_renamings:
+                  new_I['args'][arg_idx] = lvn_renamings[argname]
+                  I = new_I
+                  BBs[BB_idx][I_idx] = new_I
+                  changed = True
+            if 'dest' in I and I['dest'] in lvn_vars:
+              new_argname = I['dest'] + 'p'
+              while new_argname in lvn_vars:
+                new_argname = new_argname + 'p'
+              lvn_renamings[I['dest']] = new_argname
+              new_I['dest'] = new_argname
+              I = new_I
+              BBs[BB_idx][I_idx] = new_I
+              changed = True
 
           lvn_value = canonical_lvn_value(I)
           if 'dest' in I:
@@ -378,6 +403,12 @@ def constfold(M):
 def reassign(M):
   return lvn_core(M, 'reassign')
 
+# Module Pass: LVN unique name
+#
+# Variable redefinitions are replaced with a unique name
+def uname(M):
+  return lvn_core(M, 'uname')
+
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.option('--passes', '-p', help='Add passes')
 @click.option('--filename', '-f', help='Input filename')
@@ -395,6 +426,8 @@ def main(passes, filename, passthru):
   normbbs - normalize all basic blocks to have a label
 
       Finds all basic blocks and creates default label if necessary.
+
+  uname - ensures destination variables have a unique name
 
   cse - LVN pass for common subexpression elimination
 
@@ -419,7 +452,7 @@ def main(passes, filename, passthru):
 
       Default:
 
-          'tdce,normbbs,cse,constprop,reassign,constfold,cleanmeta,tdce'
+          'tdce,normbbs,uname,cse,constprop,reassign,constfold,cleanmeta,tdce'
   """
   if passes:
     if ',' in passes:
@@ -428,7 +461,7 @@ def main(passes, filename, passthru):
       passes = [passes]
   else:
       # Default all passes
-      passes = 'tdce,normbbs,cse,constprop,reassign,constfold,cleanmeta,tdce'.split(',')
+      passes = 'tdce,normbbs,uname,cse,constprop,reassign,constfold,cleanmeta,tdce'.split(',')
 
   if filename:
     file_contents = open(filename, 'r').read()
@@ -443,6 +476,9 @@ def main(passes, filename, passthru):
       passes = passes[1:]
     elif passes[0] == 'normbbs':
       M = normbbs(M)
+      passes = passes[1:]
+    elif passes[0] == 'uname':
+      M = uname(M)
       passes = passes[1:]
     elif passes[0] == 'cse':
       M = cse(M)

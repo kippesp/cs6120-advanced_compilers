@@ -4,9 +4,8 @@
   sum1: int = add a b;
   one: int = const 1;
   acc: int = add sum1 one;
-  sum1: int = sub b one;
-  sum2: int = add a b;
-  sum3: int = add acc sum1;
-  sum4: int = mul sum2 sum3;
+  sum1p: int = sub b one;
+  sum3: int = add acc sum1p;
+  sum4: int = mul sum1 sum3;
   print sum4;
 }
