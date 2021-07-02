@@ -1,0 +1,67 @@
+Implementation for local analysis and optimization lesson #3.
+
+The Python3 bropt program processes BRIL and support the follosing
+optimizations on a single basic block.  The `main` function acts as a
+pass manager and will select the default passes to perform.  Some passes,
+such as `normbbs`, `uname`, `cleanmeta` must be run at particular points.
+
+tdce - trivial dead code elimination
+
+    A global pass that removes obviously dead instructions that have no use.
+
+normbbs - normalize all basic blocks to have a label
+
+    The basic block maker from the previous lesson.  Used to halt the program
+    if more than one basic block is found.
+
+uname - ensures destination variables have a unique name
+
+    Resolves the reasignment issue introduced by LVN by ensuring no destination
+    clashes with earlier variables.  Subsequent arguments are renamed as
+    necessary
+
+cse - LVN pass for common subexpression elimination
+
+    Normalizes instructions so that arguments for certain are listed
+    alphabetically when ordering does not matter.  This permits reuse of
+    calculations.
+
+    For example:
+
+        m = add a + b
+        n = add b + a
+        s = add m + n
+
+    The above example will optimize the `m` and `n` calulcations to a single
+    `add`.
+
+constprop - LVN pass to remove copies of constants
+
+    Example:
+
+        a = const 1
+        b = a
+        c = a + b
+
+    The above example will have b optimized with the same constant as `a`
+    and remove the copy.
+
+constfold - LVN pass to combine trivial operations acting on constants
+
+    Example:
+
+        a = const 1
+        b = a
+        c = a + b
+
+    The above example will optimize the statements to `c = 2`.
+
+reassign - LVN pass for dead code elimination
+
+    Finds dead code by finding unused LVN uses.  Similar to TDCE except uses
+    LVN.
+
+cleanmeta - deletes label statements added earlier
+
+    Removes the lables added by `normbbs` so that upstream test output
+    will match.

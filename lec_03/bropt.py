@@ -437,7 +437,9 @@ def main(passes, filename, passthru):
 
   constfold - LVN pass to combine trivial operations acting on constants
 
-  lvndce - LVN pass for dead code elimination
+  reassign - LVN dead code remover
+
+      Removes LVN values that were created but never used
 
   cleanmeta - clean meta data added by earlier passes
 
